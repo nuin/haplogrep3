@@ -72,8 +72,37 @@ class VcfReader:
 
             alt = alts[0]
 
-            # Skip indels for now (complex handling required)
-            if len(ref) != 1 or len(alt) != 1:
+            # Handle indels
+            if len(ref) != len(alt):
+                # Insertion
+                if len(alt) > len(ref):
+                    inserted = alt[len(ref):]
+                    for idx, base in enumerate(inserted, start=1):
+                        try:
+                            poly = Polymorphism(
+                                position=pos,
+                                mutation=Mutation(base.upper()),
+                                insertion_position=idx,
+                            )
+                            for sample_name in sample_names:
+                                gt = variant.genotypes[sample_names.index(sample_name)]
+                                if gt[0] > 0 or gt[1] > 0:
+                                    samples[sample_name].append(poly)
+                        except ValueError:
+                            pass
+                # Deletion
+                elif len(ref) > len(alt):
+                    try:
+                        poly = Polymorphism(
+                            position=pos + 1,  # Deletion position
+                            mutation=Mutation.D,
+                        )
+                        for sample_name in sample_names:
+                            gt = variant.genotypes[sample_names.index(sample_name)]
+                            if gt[0] > 0 or gt[1] > 0:
+                                samples[sample_name].append(poly)
+                    except ValueError:
+                        pass
                 continue
 
             # Process each sample
@@ -107,14 +136,14 @@ class VcfReader:
 
         vcf.close()
 
-        # Create Sample objects
+        # Create Sample objects - use full mtDNA range by default
         result = []
         for name, polys in samples.items():
             sample = Sample(
                 id=name,
                 polymorphisms=polys,
-                range_start=min_pos if polys else 1,
-                range_end=max_pos if polys else 16569,
+                range_start=1,
+                range_end=16569,
             )
             result.append(sample)
 

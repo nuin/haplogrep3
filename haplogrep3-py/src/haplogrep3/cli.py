@@ -44,14 +44,14 @@ def classify(
         Path,
         typer.Option("--input", "--in", "-i", help="Input file (VCF, FASTA, TSV, or TXT)"),
     ],
-    tree: Annotated[
-        str,
-        typer.Option("--tree", "-t", help="Tree ID or path to tree file"),
-    ] = "phylotree-rcrs@17.2",
     output: Annotated[
         Path,
         typer.Option("--output", "--out", "-o", help="Output file path"),
     ],
+    tree: Annotated[
+        str,
+        typer.Option("--tree", "-t", help="Tree ID or path to tree file"),
+    ] = "phylotree-rcrs@17.2",
     distance: Annotated[
         Distance,
         typer.Option("--distance", "--metric", "-d", help="Distance metric"),

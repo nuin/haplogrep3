@@ -75,8 +75,53 @@ class Phylotree(BaseModel):
     reference_fasta: Optional[str] = Field(default=None, description="Path to reference FASTA")
     weights_file: Optional[str] = Field(default=None, description="Path to weights file")
     hotspots: set[str] = Field(default_factory=set, description="Known hotspot polymorphisms")
+    _weights: Optional[dict[str, float]] = None  # Cached weights
 
     model_config = {"arbitrary_types_allowed": True}
+
+    def get_weights(self) -> dict[str, float]:
+        """Load and return polymorphism weights.
+
+        Weights are used by Kulczynski metric for quality calculation.
+        Format: polymorphism string -> weight value
+
+        Returns:
+            Dictionary mapping polymorphism strings to weights
+        """
+        if self._weights is not None:
+            return self._weights
+
+        weights: dict[str, float] = {}
+        if self.weights_file:
+            try:
+                with open(self.weights_file) as f:
+                    for line in f:
+                        parts = line.strip().split('\t')
+                        if len(parts) >= 2:
+                            poly_str = parts[0].strip()
+                            try:
+                                weight = float(parts[1])
+                                weights[poly_str] = weight
+                            except ValueError:
+                                pass
+            except FileNotFoundError:
+                pass
+
+        object.__setattr__(self, '_weights', weights)
+        return weights
+
+    def get_weight(self, poly: Polymorphism) -> float:
+        """Get weight for a polymorphism.
+
+        Args:
+            poly: Polymorphism to get weight for
+
+        Returns:
+            Weight value (default 1.0 if not found)
+        """
+        weights = self.get_weights()
+        poly_str = str(poly)  # e.g., "263G" or "315.1C"
+        return weights.get(poly_str, 1.0)
 
     def get_haplogroup(self, name: str) -> Optional[Haplogroup]:
         """Find a haplogroup by name.

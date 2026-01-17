@@ -26,7 +26,8 @@ class JaccardDistance(DistanceMetric):
         self,
         sample_polymorphisms: set[Polymorphism],
         expected_polymorphisms: set[Polymorphism],
-        weights: dict[int, float] | None = None,
+        weights: dict[str, float] | None = None,
+        hotspots: set[str] | None = None,
     ) -> float:
         """Calculate Jaccard similarity coefficient.
 

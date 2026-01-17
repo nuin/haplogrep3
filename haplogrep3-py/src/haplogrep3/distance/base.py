@@ -18,14 +18,16 @@ class DistanceMetric(ABC):
         self,
         sample_polymorphisms: set[Polymorphism],
         expected_polymorphisms: set[Polymorphism],
-        weights: dict[int, float] | None = None,
+        weights: dict[str, float] | None = None,
+        hotspots: set[str] | None = None,
     ) -> float:
         """Calculate the quality/similarity score.
 
         Args:
             sample_polymorphisms: Set of polymorphisms observed in sample
             expected_polymorphisms: Set of expected polymorphisms for haplogroup
-            weights: Optional position weights
+            weights: Optional polymorphism weights (poly string -> weight)
+            hotspots: Optional set of hotspot polymorphism strings
 
         Returns:
             Quality score between 0 and 1 (1 = perfect match)

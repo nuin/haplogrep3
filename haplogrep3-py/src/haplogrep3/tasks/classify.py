@@ -60,6 +60,10 @@ class ClassificationTask:
         """
         sample_polys = sample.polymorphism_set
 
+        # Get weights and hotspots from phylotree for weighted distance calculation
+        weights = self.phylotree.get_weights() if self.phylotree.weights_file else None
+        hotspots = self.phylotree.hotspots if self.phylotree.hotspots else None
+
         # Score all haplogroups
         scores: list[tuple[float, PhyloTreeNode]] = []
 
@@ -71,7 +75,7 @@ class ClassificationTask:
             if not expected_polys:
                 continue
 
-            quality = self.metric.calculate(sample_polys, expected_polys)
+            quality = self.metric.calculate(sample_polys, expected_polys, weights, hotspots)
             scores.append((quality, node))
 
         # Get top N hits
