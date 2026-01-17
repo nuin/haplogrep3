@@ -74,3 +74,60 @@ src/haplogrep3/
 - `cyvcf2`: VCF parsing
 - `biopython`: FASTA parsing
 - `rich`: CLI output formatting
+- `fastapi`: Web API framework
+- `uvicorn`: ASGI server
+
+## Web Interface
+
+### Running the Server
+
+```bash
+# Start the FastAPI server
+uv run haplogrep3 server
+
+# With custom host/port
+uv run haplogrep3 server --host 0.0.0.0 --port 8000
+
+# Development mode with auto-reload
+uv run haplogrep3 server --reload
+```
+
+### API Endpoints
+- `GET /api/health` - Health check
+- `GET /api/trees` - List available phylogenetic trees
+- `GET /api/distances` - List distance metrics
+- `POST /api/classify` - Classify samples from uploaded file
+
+### Frontend Development
+
+```bash
+cd frontend
+
+# Install dependencies
+npm install
+
+# Run development server (connects to backend at localhost:7001)
+npm run dev
+
+# Type check
+npm run check
+
+# Build for production
+npm run build
+```
+
+### Project Structure (Web)
+```
+src/haplogrep3/api/
+├── __init__.py
+└── app.py              # FastAPI application
+
+frontend/               # Svelte 5 + SvelteKit
+├── src/
+│   ├── lib/
+│   │   └── api.ts      # API client
+│   └── routes/
+│       └── +page.svelte # Main classification UI
+├── svelte.config.js
+└── vite.config.ts      # Includes proxy to backend
+```

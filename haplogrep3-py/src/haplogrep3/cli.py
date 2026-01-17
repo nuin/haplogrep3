@@ -9,7 +9,7 @@ from rich.table import Table
 
 from haplogrep3 import __version__
 from haplogrep3.distance import Distance
-from haplogrep3.io import PhylotreeLoader, VcfReader, FastaReader
+from haplogrep3.io import PhylotreeLoader, VcfReader, FastaReader, TsvReader
 from haplogrep3.tasks import ClassificationTask, export_csv, export_fasta
 from haplogrep3.tasks.export import export_qc_report
 
@@ -42,12 +42,12 @@ def main(
 def classify(
     input_file: Annotated[
         Path,
-        typer.Option("--input", "--in", "-i", help="Input file (VCF or FASTA)"),
+        typer.Option("--input", "--in", "-i", help="Input file (VCF, FASTA, TSV, or TXT)"),
     ],
     tree: Annotated[
         str,
         typer.Option("--tree", "-t", help="Tree ID or path to tree file"),
-    ],
+    ] = "phylotree-rcrs@17.2",
     output: Annotated[
         Path,
         typer.Option("--output", "--out", "-o", help="Output file path"),
@@ -74,7 +74,7 @@ def classify(
     ] = False,
     het_level: Annotated[
         float,
-        typer.Option("--het-level", help="Heteroplasmy level threshold for VCF"),
+        typer.Option("--het-level", help="Heteroplasmy level threshold"),
     ] = 0.9,
     chip: Annotated[
         bool,
@@ -84,6 +84,14 @@ def classify(
         bool,
         typer.Option("--skip-alignment-rules", help="Skip nomenclature fixes for FASTA"),
     ] = False,
+    input_format: Annotated[
+        Optional[str],
+        typer.Option("--format", "-f", help="Input format: vcf, fasta, tsv, seqnext (auto-detect if not specified)"),
+    ] = None,
+    skip_hotspots: Annotated[
+        bool,
+        typer.Option("--skip-hotspots/--include-hotspots", help="Skip hotspot variants in TSV input"),
+    ] = True,
 ):
     """Classify mtDNA samples to determine haplogroups."""
     # Validate input file
@@ -100,19 +108,41 @@ def classify(
         console.print(f"[red]Error:[/red] {e}")
         raise typer.Exit(1)
 
-    # Determine input format and read samples
-    suffix = input_file.suffix.lower()
-    if suffix == ".gz":
-        # Check the extension before .gz
-        stem_suffix = Path(input_file.stem).suffix.lower()
-        suffix = stem_suffix + suffix
+    # Determine input format
+    if input_format:
+        fmt = input_format.lower()
+    else:
+        suffix = input_file.suffix.lower()
+        if suffix == ".gz":
+            stem_suffix = Path(input_file.stem).suffix.lower()
+            suffix = stem_suffix + suffix
 
-    console.print(f"Reading input file: {input_file}")
+        if suffix in (".vcf", ".vcf.gz"):
+            fmt = "vcf"
+        elif suffix in (".fasta", ".fa", ".fasta.gz", ".fa.gz"):
+            fmt = "fasta"
+        elif suffix in (".tsv", ".txt", ".csv"):
+            fmt = "tsv"
+        else:
+            # Try to detect from content
+            with open(input_file) as f:
+                first_line = f.readline()
+            if first_line.startswith("##fileformat=VCF"):
+                fmt = "vcf"
+            elif first_line.startswith(">"):
+                fmt = "fasta"
+            elif "HGVS" in first_line or "Nuc Change" in first_line:
+                fmt = "tsv"
+            else:
+                console.print(f"[red]Error:[/red] Could not detect file format. Use --format to specify.")
+                raise typer.Exit(1)
 
-    if suffix in (".vcf", ".vcf.gz"):
+    console.print(f"Reading input file: {input_file} (format: {fmt})")
+
+    if fmt == "vcf":
         reader = VcfReader(het_level=het_level, chip=chip)
         samples = reader.read(input_file)
-    elif suffix in (".fasta", ".fa", ".fasta.gz", ".fa.gz"):
+    elif fmt == "fasta":
         if phylotree.reference_fasta:
             ref_path = Path(phylotree.reference_fasta)
         else:
@@ -124,8 +154,14 @@ def classify(
             skip_alignment_rules=skip_alignment_rules,
         )
         samples = reader.read(input_file)
+    elif fmt in ("tsv", "seqnext", "txt"):
+        reader = TsvReader(
+            het_threshold=het_level,
+            skip_hotspots=skip_hotspots,
+        )
+        samples = reader.read(input_file)
     else:
-        console.print(f"[red]Error:[/red] Unsupported file format: {suffix}")
+        console.print(f"[red]Error:[/red] Unsupported format: {fmt}")
         raise typer.Exit(1)
 
     console.print(f"Loaded {len(samples)} samples")
@@ -199,6 +235,36 @@ def trees(
         table.add_row(tree_id)
 
     console.print(table)
+
+
+@app.command()
+def server(
+    host: Annotated[
+        str,
+        typer.Option("--host", "-h", help="Host to bind to"),
+    ] = "127.0.0.1",
+    port: Annotated[
+        int,
+        typer.Option("--port", "-p", help="Port to bind to"),
+    ] = 7001,
+    reload: Annotated[
+        bool,
+        typer.Option("--reload", help="Enable auto-reload for development"),
+    ] = False,
+):
+    """Start the web server."""
+    import uvicorn
+
+    console.print(f"Starting Haplogrep3 server at http://{host}:{port}")
+    console.print("API docs available at /docs")
+    console.print("Press Ctrl+C to stop\n")
+
+    uvicorn.run(
+        "haplogrep3.api:app",
+        host=host,
+        port=port,
+        reload=reload,
+    )
 
 
 @app.command("install-tree")

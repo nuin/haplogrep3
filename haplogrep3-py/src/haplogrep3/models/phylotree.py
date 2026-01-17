@@ -74,7 +74,7 @@ class Phylotree(BaseModel):
     root: PhyloTreeNode = Field(description="Root node of the tree")
     reference_fasta: Optional[str] = Field(default=None, description="Path to reference FASTA")
     weights_file: Optional[str] = Field(default=None, description="Path to weights file")
-    hotspots: set[int] = Field(default_factory=set, description="Known hotspot positions")
+    hotspots: set[str] = Field(default_factory=set, description="Known hotspot polymorphisms")
 
     model_config = {"arbitrary_types_allowed": True}
 

@@ -1,13 +1,32 @@
 """Phylotree loader for loading haplogroup trees from various sources."""
 
 import os
-import re
+import xml.etree.ElementTree as ET
+from functools import lru_cache
 from pathlib import Path
 from typing import Optional
 
 import yaml
 
 from haplogrep3.models import Phylotree, PhyloTreeNode, Haplogroup, Polymorphism
+
+# Module-level cache for loaded trees
+_tree_cache: dict[str, Phylotree] = {}
+
+
+def get_cached_tree(tree_path: str) -> Optional[Phylotree]:
+    """Get a tree from the cache if available."""
+    return _tree_cache.get(tree_path)
+
+
+def cache_tree(tree_path: str, tree: Phylotree) -> None:
+    """Cache a loaded tree."""
+    _tree_cache[tree_path] = tree
+
+
+def clear_tree_cache() -> None:
+    """Clear the tree cache."""
+    _tree_cache.clear()
 
 
 class PhylotreeLoader:
@@ -69,33 +88,53 @@ class PhylotreeLoader:
 
         return None
 
-    def _load_from_file(self, path: Path) -> Phylotree:
+    def _load_from_file(self, path: Path, use_cache: bool = True) -> Phylotree:
         """Load a phylotree from a YAML file.
 
         Args:
             path: Path to the tree YAML file
+            use_cache: Whether to use/update the cache
 
         Returns:
             Phylotree instance
         """
+        cache_key = str(path.resolve())
+
+        # Check cache first
+        if use_cache:
+            cached = get_cached_tree(cache_key)
+            if cached is not None:
+                return cached
+
         with open(path) as f:
             data = yaml.safe_load(f)
 
         tree_dir = path.parent
 
-        # Load the mtphyl tree file
-        tree_file = tree_dir / data.get("tree", "tree.txt")
-        root = self._parse_mtphyl_tree(tree_file)
+        # Load the tree file (XML or mtphyl format)
+        tree_filename = data.get("tree", "tree.txt")
+        tree_file = tree_dir / tree_filename
 
-        return Phylotree(
+        if tree_filename.endswith(".xml"):
+            root = self._parse_xml_tree(tree_file)
+        else:
+            root = self._parse_mtphyl_tree(tree_file)
+
+        tree = Phylotree(
             id=data.get("id", path.stem),
             name=data.get("name", data.get("id", path.stem)),
-            version=data.get("version", ""),
+            version=str(data.get("version", "")),
             root=root,
             reference_fasta=str(tree_dir / data["fasta"]) if "fasta" in data else None,
             weights_file=str(tree_dir / data["weights"]) if "weights" in data else None,
             hotspots=set(data.get("hotspots", [])),
         )
+
+        # Cache the loaded tree
+        if use_cache:
+            cache_tree(cache_key, tree)
+
+        return tree
 
     def _parse_mtphyl_tree(self, tree_file: Path) -> PhyloTreeNode:
         """Parse an mtphyl format tree file.
@@ -170,6 +209,81 @@ class PhylotreeLoader:
 
                 # Push this node onto stack
                 stack.append((indent, node))
+
+        return root
+
+    def _parse_xml_tree(self, tree_file: Path) -> PhyloTreeNode:
+        """Parse an XML format tree file.
+
+        The XML format uses nested haplogroup elements with poly children:
+        <phylotree>
+          <haplogroup name="H">
+            <details>
+              <poly>263G</poly>
+            </details>
+            <haplogroup name="H1">...</haplogroup>
+          </haplogroup>
+        </phylotree>
+
+        Args:
+            tree_file: Path to the XML tree file
+
+        Returns:
+            Root PhyloTreeNode
+        """
+        root = PhyloTreeNode(
+            haplogroup=Haplogroup(name="root"),
+            polymorphisms=[],
+            children=[],
+        )
+
+        if not tree_file.exists():
+            return root
+
+        tree = ET.parse(tree_file)
+        xml_root = tree.getroot()
+
+        def parse_haplogroup(element: ET.Element, parent: PhyloTreeNode) -> PhyloTreeNode:
+            """Recursively parse haplogroup elements."""
+            name = element.get("name", "unknown")
+
+            # Get polymorphisms from details/poly elements
+            mutations = []
+            details = element.find("details")
+            if details is not None:
+                for poly in details.findall("poly"):
+                    if poly.text:
+                        try:
+                            mutations.append(Polymorphism.from_string(poly.text.strip()))
+                        except (ValueError, IndexError):
+                            pass
+
+            node = PhyloTreeNode(
+                haplogroup=Haplogroup(name=name),
+                polymorphisms=mutations,
+                children=[],
+                parent=parent,
+            )
+
+            # Recursively parse child haplogroups
+            for child_elem in element.findall("haplogroup"):
+                child_node = parse_haplogroup(child_elem, node)
+                node.children.append(child_node)
+
+            return node
+
+        # Parse all top-level haplogroups
+        for hg_elem in xml_root.findall(".//haplogroup"):
+            # Only process top-level haplogroups (those directly under phylotree or without a haplogroup parent)
+            parent_tag = None
+            for parent in xml_root.iter():
+                if hg_elem in parent:
+                    parent_tag = parent.tag
+                    break
+
+            if parent_tag == "phylotree":
+                node = parse_haplogroup(hg_elem, root)
+                root.children.append(node)
 
         return root
 
