@@ -1,0 +1,19 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(xargs find:*)",
+      "Bash(git reset:*)",
+      "Bash(npm create:*)",
+      "mcp__svelte__svelte-autofixer",
+      "Bash(npm run check:*)",
+      "WebFetch(domain:raw.githubusercontent.com)",
+      "Bash(npm install:*)",
+      "Bash(/tmp/haplogrep3/haplogrep3 classify:*)",
+      "Bash(java:*)",
+      "Bash(find:*)",
+      "Bash(javap:*)",
+      "Bash(cat:*)",
+      "WebSearch"
+    ]
+  }
+}

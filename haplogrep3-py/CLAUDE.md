@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-Haplogrep3-py is a Python reimplementation of the Haplogrep3 mtDNA haplogroup classification tool. It classifies mitochondrial DNA samples against phylogenetic trees (PhyloTree) to determine haplogroups.
+mtclassify is a Python mtDNA haplogroup classification tool. It classifies mitochondrial DNA samples against phylogenetic trees (PhyloTree) to determine haplogroups.
 
 ## Build and Development Commands
 
@@ -19,18 +19,18 @@ uv run pytest tests/ -v
 uv run pytest tests/test_polymorphism.py -v
 
 # Run with coverage
-uv run pytest tests/ --cov=haplogrep3
+uv run pytest tests/ --cov=mtclassify
 
 # Run the CLI
-uv run haplogrep3 --help
-uv run haplogrep3 classify --help
-uv run haplogrep3 trees
+uv run mtclassify --help
+uv run mtclassify run --help
+uv run mtclassify trees
 ```
 
 ## Project Structure
 
 ```
-src/haplogrep3/
+src/mtclassify/
 ├── __init__.py
 ├── cli.py              # Typer CLI entry point
 ├── models/             # Pydantic data models
@@ -48,6 +48,11 @@ src/haplogrep3/
 │   ├── tree_loader.py  # Phylotree YAML loader
 │   ├── vcf_reader.py   # VCF parser (cyvcf2)
 │   └── fasta_reader.py # FASTA parser (biopython)
+├── mitomaster/         # MitoMaster variant database
+│   ├── database.py     # DuckDB database
+│   ├── downloader.py   # NCBI downloader
+│   ├── processor.py    # GenBank processor
+│   └── frequency.py    # Frequency calculator
 └── tasks/              # Classification pipeline
     ├── classify.py     # ClassificationTask
     └── export.py       # CSV/FASTA export
@@ -76,6 +81,7 @@ src/haplogrep3/
 - `rich`: CLI output formatting
 - `fastapi`: Web API framework
 - `uvicorn`: ASGI server
+- `duckdb`: MitoMaster database
 
 ## Web Interface
 
@@ -83,13 +89,13 @@ src/haplogrep3/
 
 ```bash
 # Start the FastAPI server
-uv run haplogrep3 server
+uv run mtclassify server
 
 # With custom host/port
-uv run haplogrep3 server --host 0.0.0.0 --port 8000
+uv run mtclassify server --host 0.0.0.0 --port 8000
 
 # Development mode with auto-reload
-uv run haplogrep3 server --reload
+uv run mtclassify server --reload
 ```
 
 ### API Endpoints
@@ -97,6 +103,12 @@ uv run haplogrep3 server --reload
 - `GET /api/trees` - List available phylogenetic trees
 - `GET /api/distances` - List distance metrics
 - `POST /api/classify` - Classify samples from uploaded file
+
+### MitoMaster Endpoints
+- `GET /api/mitomaster/status` - Database status
+- `GET /api/mitomaster/stats` - Database statistics
+- `GET /api/mitomaster/variant/{position}` - Get variant at position
+- `GET /api/mitomaster/search` - Search variants
 
 ### Frontend Development
 
@@ -118,16 +130,45 @@ npm run build
 
 ### Project Structure (Web)
 ```
-src/haplogrep3/api/
+src/mtclassify/api/
 ├── __init__.py
-└── app.py              # FastAPI application
+├── app.py              # FastAPI application
+└── mitomaster_routes.py # MitoMaster API routes
 
 frontend/               # Svelte 5 + SvelteKit
 ├── src/
 │   ├── lib/
 │   │   └── api.ts      # API client
 │   └── routes/
-│       └── +page.svelte # Main classification UI
+│       ├── +page.svelte      # Main classification UI
+│       └── mitomaster/       # MitoMaster UI
+│           └── +page.svelte
 ├── svelte.config.js
 └── vite.config.ts      # Includes proxy to backend
+```
+
+## CLI Commands
+
+### Classification
+```bash
+# Classify mtDNA samples
+mtclassify run -i samples.vcf -o results.csv
+
+# With options
+mtclassify run -i samples.fasta -o results.csv -t phylotree-rcrs@17.2 -d kulczynski --hits 3
+```
+
+### MitoMaster Database
+```bash
+# Build database from NCBI
+mtclassify mitomaster-build -e your@email.com
+
+# Import local GenBank files
+mtclassify mitomaster-import /path/to/genomes/ -o mitomaster.db
+
+# Query a position
+mtclassify mitomaster-query 3243
+
+# Show database stats
+mtclassify mitomaster-stats
 ```

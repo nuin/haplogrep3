@@ -143,7 +143,7 @@
 			</p>
 			<div class="bg-white rounded p-4 font-mono text-sm">
 				<p class="text-slate-600 mb-2"># Build the database from NCBI:</p>
-				<p class="text-slate-800">haplogrep3 mitomaster-build -e your@email.com</p>
+				<p class="text-slate-800">mtclassify mitomaster-build -e your@email.com</p>
 			</div>
 		</div>
 	{:else}

@@ -1,4 +1,4 @@
-"""Command-line interface for haplogrep3."""
+"""Command-line interface for mtclassify."""
 
 from pathlib import Path
 from typing import Annotated, Optional
@@ -7,14 +7,14 @@ import typer
 from rich.console import Console
 from rich.table import Table
 
-from haplogrep3 import __version__
-from haplogrep3.distance import Distance
-from haplogrep3.io import PhylotreeLoader, VcfReader, FastaReader, TsvReader
-from haplogrep3.tasks import ClassificationTask, export_csv, export_fasta
-from haplogrep3.tasks.export import export_qc_report
+from mtclassify import __version__
+from mtclassify.distance import Distance
+from mtclassify.io import PhylotreeLoader, VcfReader, FastaReader, TsvReader
+from mtclassify.tasks import ClassificationTask, export_csv, export_fasta
+from mtclassify.tasks.export import export_qc_report
 
 app = typer.Typer(
-    name="haplogrep3",
+    name="mtclassify",
     help="mtDNA haplogroup classification tool",
     no_args_is_help=True,
 )
@@ -23,7 +23,7 @@ console = Console()
 
 def version_callback(value: bool):
     if value:
-        console.print(f"Haplogrep 3 {__version__}")
+        console.print(f"mtclassify {__version__}")
         raise typer.Exit()
 
 
@@ -34,12 +34,12 @@ def main(
         typer.Option("--version", "-v", callback=version_callback, is_eager=True),
     ] = None,
 ):
-    """Haplogrep 3 - mtDNA haplogroup classification tool."""
+    """mtclassify - mtDNA haplogroup classification tool."""
     pass
 
 
 @app.command()
-def classify(
+def run(
     input_file: Annotated[
         Path,
         typer.Option("--input", "--in", "-i", help="Input file (VCF, FASTA, TSV, or TXT)"),
@@ -93,7 +93,7 @@ def classify(
         typer.Option("--skip-hotspots/--include-hotspots", help="Skip hotspot variants in TSV input"),
     ] = True,
 ):
-    """Classify mtDNA samples to determine haplogroups."""
+    """Run mtDNA haplogroup classification on samples."""
     # Validate input file
     if not input_file.exists():
         console.print(f"[red]Error:[/red] Input file '{input_file}' not found.")
@@ -221,7 +221,7 @@ def trees(
     if not available:
         console.print("No trees installed.")
         console.print("\nInstall trees with:")
-        console.print("  haplogrep3 install-tree <tree-id>")
+        console.print("  mtclassify install-tree <tree-id>")
         console.print("\nAvailable trees from repository:")
         console.print("  - phylotree-fu-rcrs@1.2")
         console.print("  - phylotree-fu-rcrs@1.0")
@@ -255,12 +255,12 @@ def server(
     """Start the web server."""
     import uvicorn
 
-    console.print(f"Starting Haplogrep3 server at http://{host}:{port}")
+    console.print(f"Starting mtclassify server at http://{host}:{port}")
     console.print("API docs available at /docs")
     console.print("Press Ctrl+C to stop\n")
 
     uvicorn.run(
-        "haplogrep3.api:app",
+        "mtclassify.api:app",
         host=host,
         port=port,
         reload=reload,
@@ -297,7 +297,7 @@ def mitomaster_build(
     output: Annotated[
         Path,
         typer.Option("--output", "-o", help="Output database file path"),
-    ] = Path.home() / ".haplogrep3" / "mitomaster.db",
+    ] = Path.home() / ".mtclassify" / "mitomaster.db",
     email: Annotated[
         str,
         typer.Option("--email", "-e", help="NCBI Entrez email (required)"),
@@ -326,11 +326,11 @@ def mitomaster_build(
     """Build MitoMaster database from NCBI mtDNA genomes.
 
     Downloads complete mitochondrial genomes from NCBI, classifies them with
-    haplogrep3, extracts variants vs rCRS, and stores everything in a portable
+    mtclassify, extracts variants vs rCRS, and stores everything in a portable
     DuckDB database.
 
     Example:
-        haplogrep3 mitomaster-build -e your@email.com --max 1000
+        mtclassify mitomaster-build -e your@email.com --max 1000
     """
     if not email:
         console.print("[red]Error:[/red] NCBI requires an email address. Use --email")
@@ -338,7 +338,7 @@ def mitomaster_build(
 
     from rich.progress import Progress, TaskID
 
-    from haplogrep3.mitomaster import (
+    from mtclassify.mitomaster import (
         MitoMasterDB,
         NCBIDownloader,
         DownloadConfig,
@@ -441,7 +441,7 @@ def mitomaster_update(
     database: Annotated[
         Path,
         typer.Option("--database", "-d", help="Path to existing MitoMaster database"),
-    ] = Path.home() / ".haplogrep3" / "mitomaster.db",
+    ] = Path.home() / ".mtclassify" / "mitomaster.db",
     email: Annotated[
         str,
         typer.Option("--email", "-e", help="NCBI Entrez email (required)"),
@@ -464,11 +464,11 @@ def mitomaster_update(
     Checks NCBI for new genomes not already in the database and adds them.
 
     Example:
-        haplogrep3 mitomaster-update -e your@email.com
+        mtclassify mitomaster-update -e your@email.com
     """
     if not database.exists():
         console.print(f"[red]Error:[/red] Database not found: {database}")
-        console.print("Use 'haplogrep3 mitomaster-build' to create a new database.")
+        console.print("Use 'mtclassify mitomaster-build' to create a new database.")
         raise typer.Exit(1)
 
     if not email:
@@ -477,7 +477,7 @@ def mitomaster_update(
 
     from rich.progress import Progress
 
-    from haplogrep3.mitomaster import (
+    from mtclassify.mitomaster import (
         MitoMasterDB,
         NCBIDownloader,
         DownloadConfig,
@@ -548,7 +548,7 @@ def mitomaster_query(
     database: Annotated[
         Path,
         typer.Option("--database", "-d", help="Path to MitoMaster database"),
-    ] = Path.home() / ".haplogrep3" / "mitomaster.db",
+    ] = Path.home() / ".mtclassify" / "mitomaster.db",
     ref: Annotated[
         Optional[str],
         typer.Option("--ref", "-r", help="Reference base filter"),
@@ -561,19 +561,19 @@ def mitomaster_query(
     """Query variant frequency at a specific position.
 
     Example:
-        haplogrep3 mitomaster-query 3243
-        haplogrep3 mitomaster-query 3243 --ref A --alt G
+        mtclassify mitomaster-query 3243
+        mtclassify mitomaster-query 3243 --ref A --alt G
     """
     if not database.exists():
         console.print(f"[red]Error:[/red] Database not found: {database}")
-        console.print("Use 'haplogrep3 mitomaster-build' to create a database.")
+        console.print("Use 'mtclassify mitomaster-build' to create a database.")
         raise typer.Exit(1)
 
     if position < 1 or position > 16569:
         console.print("[red]Error:[/red] Position must be between 1 and 16569")
         raise typer.Exit(1)
 
-    from haplogrep3.mitomaster import MitoMasterDB
+    from mtclassify.mitomaster import MitoMasterDB
 
     with MitoMasterDB(database) as db:
         # Get gene info
@@ -640,19 +640,19 @@ def mitomaster_stats(
     database: Annotated[
         Path,
         typer.Option("--database", "-d", help="Path to MitoMaster database"),
-    ] = Path.home() / ".haplogrep3" / "mitomaster.db",
+    ] = Path.home() / ".mtclassify" / "mitomaster.db",
 ):
     """Display MitoMaster database statistics.
 
     Example:
-        haplogrep3 mitomaster-stats
+        mtclassify mitomaster-stats
     """
     if not database.exists():
         console.print(f"[red]Error:[/red] Database not found: {database}")
-        console.print("Use 'haplogrep3 mitomaster-build' to create a database.")
+        console.print("Use 'mtclassify mitomaster-build' to create a database.")
         raise typer.Exit(1)
 
-    from haplogrep3.mitomaster import MitoMasterDB
+    from mtclassify.mitomaster import MitoMasterDB
 
     with MitoMasterDB(database) as db:
         stats = db.get_stats()
@@ -675,6 +675,136 @@ def mitomaster_stats(
                 table.add_row(hg['haplogroup'], str(hg['count']))
 
             console.print(table)
+
+
+@app.command("mitomaster-import")
+def mitomaster_import(
+    input_dir: Annotated[
+        Path,
+        typer.Argument(help="Directory containing GenBank (.gb) files"),
+    ],
+    output: Annotated[
+        Path,
+        typer.Option("--output", "-o", help="Output database file path"),
+    ] = Path.home() / ".mtclassify" / "mitomaster.db",
+    tree: Annotated[
+        str,
+        typer.Option("--tree", "-t", help="Tree ID for haplogroup classification"),
+    ] = "phylotree-rcrs@17.2",
+    batch_size: Annotated[
+        int,
+        typer.Option("--batch-size", help="Genomes per batch for frequency updates"),
+    ] = 500,
+    pattern: Annotated[
+        str,
+        typer.Option("--pattern", "-p", help="File pattern to match"),
+    ] = "*.gb",
+    keep_files: Annotated[
+        bool,
+        typer.Option("--keep-files/--delete-files", help="Keep source files after import"),
+    ] = True,
+):
+    """Import local GenBank files into MitoMaster database.
+
+    Processes existing GenBank files from a directory, classifies them with
+    mtclassify, extracts variants, and stores in the database.
+
+    Example:
+        mtclassify mitomaster-import /path/to/genomes/
+        mtclassify mitomaster-import /path/to/genomes/ --pattern "*.gbk"
+    """
+    if not input_dir.exists():
+        console.print(f"[red]Error:[/red] Directory not found: {input_dir}")
+        raise typer.Exit(1)
+
+    from rich.progress import Progress
+
+    from mtclassify.mitomaster import (
+        MitoMasterDB,
+        GenomeProcessor,
+        FrequencyCalculator,
+    )
+
+    # Find all GenBank files
+    gb_files = sorted(input_dir.glob(pattern))
+    if not gb_files:
+        console.print(f"[red]Error:[/red] No files matching '{pattern}' found in {input_dir}")
+        raise typer.Exit(1)
+
+    console.print(f"[bold]MitoMaster Local Import[/bold]")
+    console.print(f"Input: {input_dir}")
+    console.print(f"Files found: {len(gb_files)}")
+    console.print(f"Output: {output}")
+    console.print(f"Tree: {tree}")
+    console.print()
+
+    # Create output directory
+    output.parent.mkdir(parents=True, exist_ok=True)
+
+    # Initialize database
+    console.print("Initializing database...")
+    with MitoMasterDB(output) as db:
+        db.initialize()
+
+        # Filter existing
+        new_files = []
+        for f in gb_files:
+            # Use filename (without extension) as accession check
+            accession = f.stem
+            if not db.genome_exists(accession):
+                new_files.append(f)
+
+        console.print(f"New genomes to process: {len(new_files)}")
+
+        if not new_files:
+            console.print("[green]Database is up to date![/green]")
+            return
+
+        # Initialize processor
+        processor = GenomeProcessor(db, tree_id=tree)
+
+        # Process genomes with progress bar
+        processed = 0
+        failed = 0
+
+        with Progress() as progress:
+            task = progress.add_task("Processing genomes...", total=len(new_files))
+
+            for gb_path in new_files:
+                try:
+                    success = processor.process_and_store(gb_path, delete_after=not keep_files)
+                    if success:
+                        processed += 1
+                    else:
+                        failed += 1
+                except Exception as e:
+                    console.print(f"[red]Error processing {gb_path.name}:[/red] {e}")
+                    failed += 1
+
+                progress.update(task, advance=1)
+
+                # Periodic frequency updates
+                if processed > 0 and processed % batch_size == 0:
+                    console.print(f"\nUpdating frequencies (processed {processed})...")
+                    calculator = FrequencyCalculator(db)
+                    calculator.compute_all_frequencies()
+
+        console.print(f"\n[green]Import complete![/green]")
+        console.print(f"  Processed: {processed}")
+        console.print(f"  Failed: {failed}")
+
+        # Final frequency calculation
+        console.print("\nComputing final frequency statistics...")
+        calculator = FrequencyCalculator(db)
+        calculator.compute_all_frequencies()
+
+        # Show stats
+        stats = db.get_stats()
+        console.print(f"\n[bold]Database Statistics:[/bold]")
+        console.print(f"  Total genomes: {stats['genome_count']}")
+        console.print(f"  Human genomes: {stats['human_genome_count']}")
+        console.print(f"  Total variants: {stats['variant_count']}")
+        console.print(f"  Unique variants: {stats['unique_variant_count']}")
 
 
 if __name__ == "__main__":

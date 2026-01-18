@@ -1,4 +1,4 @@
-"""FastAPI application for haplogrep3."""
+"""FastAPI application for mtclassify."""
 
 from .app import app, create_app
 

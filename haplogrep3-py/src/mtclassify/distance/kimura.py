@@ -1,6 +1,6 @@
 """Kimura 2-parameter distance metric."""
 
-from haplogrep3.models.polymorphism import Polymorphism, Mutation
+from mtclassify.models.polymorphism import Polymorphism, Mutation
 from .base import DistanceMetric
 
 

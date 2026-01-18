@@ -8,10 +8,10 @@ from typing import Optional
 from Bio import SeqIO
 from Bio.Seq import Seq
 
-from haplogrep3.io import PhylotreeLoader
-from haplogrep3.models import Sample, Polymorphism, Mutation
-from haplogrep3.tasks import ClassificationTask
-from haplogrep3.distance import Distance
+from mtclassify.io import PhylotreeLoader
+from mtclassify.models import Sample, Polymorphism, Mutation
+from mtclassify.tasks import ClassificationTask
+from mtclassify.distance import Distance
 
 from .database import MitoMasterDB, GenomeRecord, VariantRecord
 
@@ -101,7 +101,7 @@ class GenomeProcessor:
                 collection_date = feature.qualifiers.get("collection_date", [None])[0]
                 break
 
-        # Classify with haplogrep3
+        # Classify with mtclassify
         haplogroup = None
         quality = None
 

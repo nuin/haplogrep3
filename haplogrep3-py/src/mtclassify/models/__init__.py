@@ -1,4 +1,4 @@
-"""Data models for haplogrep3."""
+"""Data models for mtclassify."""
 
 from .polymorphism import Polymorphism, Mutation
 from .haplogroup import Haplogroup

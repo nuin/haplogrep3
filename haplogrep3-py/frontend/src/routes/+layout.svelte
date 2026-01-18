@@ -22,7 +22,7 @@
 						<path d="M2 12h20" />
 					</svg>
 					<div>
-						<h1 class="text-2xl font-bold">Haplogrep3</h1>
+						<h1 class="text-2xl font-bold">mtclassify</h1>
 						<p class="text-blue-100 text-sm">mtDNA Analysis Suite</p>
 					</div>
 				</div>

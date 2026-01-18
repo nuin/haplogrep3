@@ -1,1 +1,1 @@
-"""Tests for haplogrep3."""
+"""Tests for mtclassify."""

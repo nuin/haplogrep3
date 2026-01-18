@@ -1,6 +1,6 @@
 """Hamming distance metric."""
 
-from haplogrep3.models.polymorphism import Polymorphism
+from mtclassify.models.polymorphism import Polymorphism
 from .base import DistanceMetric
 
 

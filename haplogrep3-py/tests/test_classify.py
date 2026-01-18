@@ -1,15 +1,15 @@
 """Tests for classification task."""
 
 import pytest
-from haplogrep3.models import (
+from mtclassify.models import (
     Sample,
     Polymorphism,
     Phylotree,
     PhyloTreeNode,
     Haplogroup,
 )
-from haplogrep3.tasks import ClassificationTask
-from haplogrep3.distance import Distance
+from mtclassify.tasks import ClassificationTask
+from mtclassify.distance import Distance
 
 
 def create_test_tree() -> Phylotree:

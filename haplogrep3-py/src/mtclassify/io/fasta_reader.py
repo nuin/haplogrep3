@@ -3,7 +3,7 @@
 from pathlib import Path
 from typing import Optional
 
-from haplogrep3.models import Sample, Polymorphism, Mutation
+from mtclassify.models import Sample, Polymorphism, Mutation
 
 
 # rCRS (revised Cambridge Reference Sequence) - mtDNA reference

@@ -28,13 +28,13 @@ def get_database_path() -> Optional[Path]:
 
 def _get_db():
     """Get database connection, raising error if not configured."""
-    from haplogrep3.mitomaster import MitoMasterDB
+    from mtclassify.mitomaster import MitoMasterDB
 
     if _db_path is None or not _db_path.exists():
         raise HTTPException(
             status_code=503,
             detail="MitoMaster database not configured or not found. "
-                   "Use CLI 'haplogrep3 mitomaster-build' to create the database.",
+                   "Use CLI 'mtclassify mitomaster-build' to create the database.",
         )
     return MitoMasterDB(_db_path)
 
@@ -360,7 +360,7 @@ async def analyze_sequence(
 
     with _get_db() as db:
         # Get rCRS reference from processor
-        from haplogrep3.mitomaster.processor import GenomeProcessor
+        from mtclassify.mitomaster.processor import GenomeProcessor
 
         # Use a temporary processor just to get rCRS
         try:

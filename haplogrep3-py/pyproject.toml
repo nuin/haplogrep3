@@ -1,5 +1,5 @@
 [project]
-name = "haplogrep3"
+name = "mtclassify"
 version = "0.1.0"
 description = "mtDNA haplogroup classification tool"
 readme = "README.md"
@@ -18,14 +18,14 @@ dependencies = [
 ]
 
 [project.scripts]
-haplogrep3 = "haplogrep3.cli:app"
+mtclassify = "mtclassify.cli:app"
 
 [build-system]
 requires = ["hatchling"]
 build-backend = "hatchling.build"
 
 [tool.hatch.build.targets.wheel]
-packages = ["src/haplogrep3"]
+packages = ["src/mtclassify"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

@@ -1,4 +1,4 @@
-"""Input/Output modules for haplogrep3."""
+"""Input/Output modules for mtclassify."""
 
 from .tree_loader import load_phylotree, PhylotreeLoader
 from .vcf_reader import VcfReader

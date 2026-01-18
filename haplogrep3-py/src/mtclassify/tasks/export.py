@@ -4,7 +4,7 @@ import csv
 from pathlib import Path
 from typing import TextIO
 
-from haplogrep3.models import Sample
+from mtclassify.models import Sample
 
 
 def export_csv(

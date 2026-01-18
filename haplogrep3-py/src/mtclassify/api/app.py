@@ -1,4 +1,4 @@
-"""FastAPI application for haplogrep3 web service."""
+"""FastAPI application for mtclassify web service."""
 
 import logging
 import os
@@ -13,11 +13,11 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 
-from haplogrep3 import __version__
-from haplogrep3.distance import Distance
-from haplogrep3.io import PhylotreeLoader, VcfReader, FastaReader, TsvReader
-from haplogrep3.tasks import ClassificationTask
-from haplogrep3.api.mitomaster_routes import router as mitomaster_router, set_database_path
+from mtclassify import __version__
+from mtclassify.distance import Distance
+from mtclassify.io import PhylotreeLoader, VcfReader, FastaReader, TsvReader
+from mtclassify.tasks import ClassificationTask
+from mtclassify.api.mitomaster_routes import router as mitomaster_router, set_database_path
 
 logger = logging.getLogger(__name__)
 
@@ -48,7 +48,7 @@ async def lifespan(app: FastAPI):
             logger.warning(f"MitoMaster database not found: {db_path}")
     else:
         # Try default location
-        default_db = Path.home() / ".haplogrep3" / "mitomaster.db"
+        default_db = Path.home() / ".mtclassify" / "mitomaster.db"
         if default_db.exists():
             set_database_path(default_db)
             logger.info(f"MitoMaster database found at default location: {default_db}")

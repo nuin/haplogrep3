@@ -5,7 +5,7 @@ import re
 from pathlib import Path
 from typing import Optional
 
-from haplogrep3.models import Sample, Polymorphism
+from mtclassify.models import Sample, Polymorphism
 
 
 class TsvReader:

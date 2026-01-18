@@ -3,7 +3,7 @@
 from pathlib import Path
 from typing import Iterator, Optional
 
-from haplogrep3.models import Sample, Polymorphism, Mutation
+from mtclassify.models import Sample, Polymorphism, Mutation
 
 
 class VcfReader:

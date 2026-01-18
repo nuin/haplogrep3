@@ -1,8 +1,8 @@
 """Tests for distance metrics."""
 
 import pytest
-from haplogrep3.models import Polymorphism
-from haplogrep3.distance import (
+from mtclassify.models import Polymorphism
+from mtclassify.distance import (
     KulczynskiDistance,
     HammingDistance,
     JaccardDistance,

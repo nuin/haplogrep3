@@ -112,7 +112,7 @@
 </script>
 
 <svelte:head>
-	<title>Haplogrep3 - mtDNA Classification</title>
+	<title>mtclassify - mtDNA Classification</title>
 </svelte:head>
 
 <!-- Main Content -->

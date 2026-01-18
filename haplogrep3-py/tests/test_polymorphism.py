@@ -1,7 +1,7 @@
 """Tests for Polymorphism model."""
 
 import pytest
-from haplogrep3.models import Polymorphism, Mutation
+from mtclassify.models import Polymorphism, Mutation
 
 
 class TestPolymorphism:

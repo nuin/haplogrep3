@@ -3,7 +3,7 @@
 from typing import Optional
 import heapq
 
-from haplogrep3.models import (
+from mtclassify.models import (
     Sample,
     Phylotree,
     PhyloTreeNode,
@@ -12,7 +12,7 @@ from haplogrep3.models import (
     RankedResult,
     ClassificationResult,
 )
-from haplogrep3.distance import Distance, DistanceMetric, get_distance_metric
+from mtclassify.distance import Distance, DistanceMetric, get_distance_metric
 
 
 class ClassificationTask:

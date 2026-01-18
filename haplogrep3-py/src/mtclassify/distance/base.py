@@ -3,7 +3,7 @@
 from abc import ABC, abstractmethod
 from typing import Protocol
 
-from haplogrep3.models.polymorphism import Polymorphism
+from mtclassify.models.polymorphism import Polymorphism
 
 
 class DistanceMetric(ABC):

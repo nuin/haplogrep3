@@ -8,7 +8,7 @@ from typing import Optional
 
 import yaml
 
-from haplogrep3.models import Phylotree, PhyloTreeNode, Haplogroup, Polymorphism
+from mtclassify.models import Phylotree, PhyloTreeNode, Haplogroup, Polymorphism
 
 # Module-level cache for loaded trees
 _tree_cache: dict[str, Phylotree] = {}
@@ -41,7 +41,7 @@ class PhylotreeLoader:
         Args:
             trees_dir: Directory containing local tree files
         """
-        self.trees_dir = trees_dir or Path.home() / ".haplogrep3" / "trees"
+        self.trees_dir = trees_dir or Path.home() / ".mtclassify" / "trees"
         self.trees_dir.mkdir(parents=True, exist_ok=True)
 
     def load(self, tree_id: str) -> Phylotree:
@@ -63,7 +63,7 @@ class PhylotreeLoader:
             return self._load_from_file(tree_path)
 
         raise FileNotFoundError(
-            f"Tree '{tree_id}' not found. Install it with: haplogrep3 install-tree {tree_id}"
+            f"Tree '{tree_id}' not found. Install it with: mtclassify install-tree {tree_id}"
         )
 
     def _find_local_tree(self, tree_id: str) -> Optional[Path]:
