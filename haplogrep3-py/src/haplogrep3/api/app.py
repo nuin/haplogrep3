@@ -1,6 +1,7 @@
 """FastAPI application for haplogrep3 web service."""
 
 import logging
+import os
 import tempfile
 import uuid
 from contextlib import asynccontextmanager
@@ -16,6 +17,7 @@ from haplogrep3 import __version__
 from haplogrep3.distance import Distance
 from haplogrep3.io import PhylotreeLoader, VcfReader, FastaReader, TsvReader
 from haplogrep3.tasks import ClassificationTask
+from haplogrep3.api.mitomaster_routes import router as mitomaster_router, set_database_path
 
 logger = logging.getLogger(__name__)
 
@@ -34,6 +36,24 @@ async def lifespan(app: FastAPI):
         except Exception as e:
             logger.warning(f"  Failed to load {tree_id}: {e}")
     logger.info(f"Preloaded {len(available)} trees")
+
+    # Configure MitoMaster database path
+    mitomaster_db = os.environ.get("MITOMASTER_DB")
+    if mitomaster_db:
+        db_path = Path(mitomaster_db)
+        if db_path.exists():
+            set_database_path(db_path)
+            logger.info(f"MitoMaster database configured: {db_path}")
+        else:
+            logger.warning(f"MitoMaster database not found: {db_path}")
+    else:
+        # Try default location
+        default_db = Path.home() / ".haplogrep3" / "mitomaster.db"
+        if default_db.exists():
+            set_database_path(default_db)
+            logger.info(f"MitoMaster database found at default location: {default_db}")
+        else:
+            logger.info("MitoMaster database not configured (set MITOMASTER_DB env var)")
 
     yield
 
@@ -57,6 +77,9 @@ def create_app() -> FastAPI:
         allow_methods=["*"],
         allow_headers=["*"],
     )
+
+    # Include MitoMaster routes
+    app.include_router(mitomaster_router)
 
     return app
 

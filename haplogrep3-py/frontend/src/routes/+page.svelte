@@ -115,26 +115,8 @@
 	<title>Haplogrep3 - mtDNA Classification</title>
 </svelte:head>
 
-<div class="min-h-screen bg-slate-50">
-	<!-- Header -->
-	<header class="bg-gradient-to-r from-blue-600 to-blue-700 text-white">
-		<div class="max-w-6xl mx-auto px-4 py-8">
-			<div class="flex items-center gap-3">
-				<svg class="w-10 h-10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-					<circle cx="12" cy="12" r="10" />
-					<path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z" />
-					<path d="M2 12h20" />
-				</svg>
-				<div>
-					<h1 class="text-2xl font-bold">Haplogrep3</h1>
-					<p class="text-blue-100">mtDNA Haplogroup Classification</p>
-				</div>
-			</div>
-		</div>
-	</header>
-
-	<!-- Main Content -->
-	<main class="max-w-6xl mx-auto px-4 py-8">
+<!-- Main Content -->
+<main class="max-w-6xl mx-auto px-4 py-8">
 		<!-- Upload Card -->
 		<div class="bg-white rounded-xl shadow-sm border border-slate-200 p-6 mb-6">
 			<h2 class="text-lg font-semibold text-slate-800 mb-6 flex items-center gap-2">
@@ -410,5 +392,4 @@
 				</div>
 			</div>
 		{/if}
-	</main>
-</div>
+</main>

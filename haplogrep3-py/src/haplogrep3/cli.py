@@ -288,5 +288,394 @@ def install_tree(
     console.print(f"\nAnd extract to: {PhylotreeLoader(trees_dir).trees_dir}")
 
 
+# =============================================================================
+# MitoMaster Commands
+# =============================================================================
+
+@app.command("mitomaster-build")
+def mitomaster_build(
+    output: Annotated[
+        Path,
+        typer.Option("--output", "-o", help="Output database file path"),
+    ] = Path.home() / ".haplogrep3" / "mitomaster.db",
+    email: Annotated[
+        str,
+        typer.Option("--email", "-e", help="NCBI Entrez email (required)"),
+    ] = "",
+    api_key: Annotated[
+        Optional[str],
+        typer.Option("--api-key", help="NCBI API key for faster downloads"),
+    ] = None,
+    organism: Annotated[
+        Optional[str],
+        typer.Option("--organism", help="Filter by organism (e.g., 'Homo sapiens')"),
+    ] = None,
+    max_genomes: Annotated[
+        Optional[int],
+        typer.Option("--max", "-m", help="Maximum number of genomes to process"),
+    ] = None,
+    tree: Annotated[
+        str,
+        typer.Option("--tree", "-t", help="Tree ID for haplogroup classification"),
+    ] = "phylotree-rcrs@17.2",
+    batch_size: Annotated[
+        int,
+        typer.Option("--batch-size", help="Genomes per batch for frequency updates"),
+    ] = 1000,
+):
+    """Build MitoMaster database from NCBI mtDNA genomes.
+
+    Downloads complete mitochondrial genomes from NCBI, classifies them with
+    haplogrep3, extracts variants vs rCRS, and stores everything in a portable
+    DuckDB database.
+
+    Example:
+        haplogrep3 mitomaster-build -e your@email.com --max 1000
+    """
+    if not email:
+        console.print("[red]Error:[/red] NCBI requires an email address. Use --email")
+        raise typer.Exit(1)
+
+    from rich.progress import Progress, TaskID
+
+    from haplogrep3.mitomaster import (
+        MitoMasterDB,
+        NCBIDownloader,
+        DownloadConfig,
+        GenomeProcessor,
+        FrequencyCalculator,
+    )
+
+    # Create output directory
+    output.parent.mkdir(parents=True, exist_ok=True)
+
+    console.print(f"[bold]MitoMaster Database Builder[/bold]")
+    console.print(f"Output: {output}")
+    console.print(f"Tree: {tree}")
+    if organism:
+        console.print(f"Organism filter: {organism}")
+    if max_genomes:
+        console.print(f"Max genomes: {max_genomes}")
+    console.print()
+
+    # Initialize database
+    console.print("Initializing database...")
+    with MitoMasterDB(output) as db:
+        db.initialize()
+
+        # Setup downloader
+        config = DownloadConfig(
+            email=email,
+            api_key=api_key,
+            batch_size=100,
+        )
+        downloader = NCBIDownloader(config)
+
+        # Search for genomes
+        console.print("\nSearching NCBI for mitochondrial genomes...")
+        accessions = downloader.search_genomes(organism=organism, max_results=max_genomes)
+        console.print(f"Found {len(accessions)} genomes")
+
+        # Filter existing
+        new_accessions = [acc for acc in accessions if not db.genome_exists(acc)]
+        console.print(f"New genomes to process: {len(new_accessions)}")
+
+        if not new_accessions:
+            console.print("[green]Database is up to date![/green]")
+            return
+
+        # Initialize processor
+        processor = GenomeProcessor(db, tree_id=tree)
+
+        # Process genomes with progress bar
+        processed = 0
+        failed = 0
+
+        with Progress() as progress:
+            task = progress.add_task("Processing genomes...", total=len(new_accessions))
+
+            for accession, temp_path in downloader.stream_genomes(
+                new_accessions,
+                skip_existing=db.genome_exists,
+            ):
+                try:
+                    success = processor.process_and_store(temp_path, delete_after=True)
+                    if success:
+                        processed += 1
+                    else:
+                        failed += 1
+                except Exception as e:
+                    console.print(f"[red]Error processing {accession}:[/red] {e}")
+                    failed += 1
+                    if temp_path.exists():
+                        temp_path.unlink()
+
+                progress.update(task, advance=1)
+
+                # Periodic frequency updates
+                if processed > 0 and processed % batch_size == 0:
+                    console.print(f"\nUpdating frequencies (processed {processed})...")
+                    calculator = FrequencyCalculator(db)
+                    calculator.compute_all_frequencies()
+
+        console.print(f"\n[green]Processing complete![/green]")
+        console.print(f"  Processed: {processed}")
+        console.print(f"  Failed: {failed}")
+
+        # Final frequency calculation
+        console.print("\nComputing final frequency statistics...")
+        calculator = FrequencyCalculator(db)
+        calculator.compute_all_frequencies()
+
+        # Show stats
+        stats = db.get_stats()
+        console.print(f"\n[bold]Database Statistics:[/bold]")
+        console.print(f"  Total genomes: {stats['genome_count']}")
+        console.print(f"  Human genomes: {stats['human_genome_count']}")
+        console.print(f"  Total variants: {stats['variant_count']}")
+        console.print(f"  Unique variants: {stats['unique_variant_count']}")
+
+
+@app.command("mitomaster-update")
+def mitomaster_update(
+    database: Annotated[
+        Path,
+        typer.Option("--database", "-d", help="Path to existing MitoMaster database"),
+    ] = Path.home() / ".haplogrep3" / "mitomaster.db",
+    email: Annotated[
+        str,
+        typer.Option("--email", "-e", help="NCBI Entrez email (required)"),
+    ] = "",
+    api_key: Annotated[
+        Optional[str],
+        typer.Option("--api-key", help="NCBI API key for faster downloads"),
+    ] = None,
+    organism: Annotated[
+        Optional[str],
+        typer.Option("--organism", help="Filter by organism"),
+    ] = None,
+    tree: Annotated[
+        str,
+        typer.Option("--tree", "-t", help="Tree ID for haplogroup classification"),
+    ] = "phylotree-rcrs@17.2",
+):
+    """Update existing MitoMaster database with new NCBI genomes.
+
+    Checks NCBI for new genomes not already in the database and adds them.
+
+    Example:
+        haplogrep3 mitomaster-update -e your@email.com
+    """
+    if not database.exists():
+        console.print(f"[red]Error:[/red] Database not found: {database}")
+        console.print("Use 'haplogrep3 mitomaster-build' to create a new database.")
+        raise typer.Exit(1)
+
+    if not email:
+        console.print("[red]Error:[/red] NCBI requires an email address. Use --email")
+        raise typer.Exit(1)
+
+    from rich.progress import Progress
+
+    from haplogrep3.mitomaster import (
+        MitoMasterDB,
+        NCBIDownloader,
+        DownloadConfig,
+        GenomeProcessor,
+        FrequencyCalculator,
+    )
+
+    console.print(f"[bold]MitoMaster Database Update[/bold]")
+    console.print(f"Database: {database}")
+
+    with MitoMasterDB(database) as db:
+        # Show current stats
+        stats = db.get_stats()
+        console.print(f"Current genomes: {stats['genome_count']}")
+
+        # Setup downloader
+        config = DownloadConfig(email=email, api_key=api_key)
+        downloader = NCBIDownloader(config)
+
+        # Search for genomes
+        console.print("\nSearching NCBI for new genomes...")
+        accessions = downloader.search_genomes(organism=organism)
+
+        # Filter to new only
+        new_accessions = [acc for acc in accessions if not db.genome_exists(acc)]
+        console.print(f"New genomes found: {len(new_accessions)}")
+
+        if not new_accessions:
+            console.print("[green]Database is up to date![/green]")
+            return
+
+        # Process new genomes
+        processor = GenomeProcessor(db, tree_id=tree)
+        processed = 0
+
+        with Progress() as progress:
+            task = progress.add_task("Processing new genomes...", total=len(new_accessions))
+
+            for accession, temp_path in downloader.stream_genomes(new_accessions):
+                try:
+                    if processor.process_and_store(temp_path, delete_after=True):
+                        processed += 1
+                except Exception as e:
+                    console.print(f"[red]Error:[/red] {accession}: {e}")
+                    if temp_path.exists():
+                        temp_path.unlink()
+
+                progress.update(task, advance=1)
+
+        # Update frequencies
+        console.print("\nUpdating frequency statistics...")
+        calculator = FrequencyCalculator(db)
+        calculator.compute_all_frequencies()
+
+        # Show updated stats
+        new_stats = db.get_stats()
+        console.print(f"\n[green]Update complete![/green]")
+        console.print(f"  Added: {new_stats['genome_count'] - stats['genome_count']} genomes")
+        console.print(f"  Total: {new_stats['genome_count']} genomes")
+
+
+@app.command("mitomaster-query")
+def mitomaster_query(
+    position: Annotated[
+        int,
+        typer.Argument(help="mtDNA position to query (1-16569)"),
+    ],
+    database: Annotated[
+        Path,
+        typer.Option("--database", "-d", help="Path to MitoMaster database"),
+    ] = Path.home() / ".haplogrep3" / "mitomaster.db",
+    ref: Annotated[
+        Optional[str],
+        typer.Option("--ref", "-r", help="Reference base filter"),
+    ] = None,
+    alt: Annotated[
+        Optional[str],
+        typer.Option("--alt", "-a", help="Alternate base filter"),
+    ] = None,
+):
+    """Query variant frequency at a specific position.
+
+    Example:
+        haplogrep3 mitomaster-query 3243
+        haplogrep3 mitomaster-query 3243 --ref A --alt G
+    """
+    if not database.exists():
+        console.print(f"[red]Error:[/red] Database not found: {database}")
+        console.print("Use 'haplogrep3 mitomaster-build' to create a database.")
+        raise typer.Exit(1)
+
+    if position < 1 or position > 16569:
+        console.print("[red]Error:[/red] Position must be between 1 and 16569")
+        raise typer.Exit(1)
+
+    from haplogrep3.mitomaster import MitoMasterDB
+
+    with MitoMasterDB(database) as db:
+        # Get gene info
+        gene_info = db.get_gene_for_position(position)
+        if gene_info:
+            console.print(f"[bold]Position {position}[/bold] ({gene_info[0]} - {gene_info[1]})")
+        else:
+            console.print(f"[bold]Position {position}[/bold]")
+
+        # Get variants
+        variants = db.get_variant_at_position(position, ref, alt)
+
+        if not variants:
+            console.print("No variants found at this position.")
+            return
+
+        # Display results
+        table = Table(title="Variant Frequencies")
+        table.add_column("Ref", style="cyan")
+        table.add_column("Alt", style="magenta")
+        table.add_column("Count", justify="right")
+        table.add_column("Frequency", justify="right")
+        table.add_column("Human Count", justify="right")
+        table.add_column("Human Freq", justify="right")
+        table.add_column("AA Change")
+
+        for v in variants:
+            table.add_row(
+                v.ref,
+                v.alt,
+                str(v.total_count),
+                f"{v.total_frequency:.4f}",
+                str(v.human_count),
+                f"{v.human_frequency:.4f}",
+                v.amino_acid_change or "",
+            )
+
+        console.print(table)
+
+        # Show haplogroup breakdown for top variant
+        if variants:
+            top_v = variants[0]
+            hg_freqs = db.get_haplogroup_frequencies(position, top_v.ref, top_v.alt)
+
+            if hg_freqs:
+                console.print(f"\n[bold]Haplogroup breakdown for {top_v.ref}>{top_v.alt}:[/bold]")
+                hg_table = Table()
+                hg_table.add_column("Haplogroup", style="cyan")
+                hg_table.add_column("Count", justify="right")
+                hg_table.add_column("Frequency", justify="right")
+
+                for hf in hg_freqs[:10]:  # Top 10
+                    hg_table.add_row(
+                        hf.haplogroup,
+                        str(hf.count),
+                        f"{hf.frequency:.4f}",
+                    )
+
+                console.print(hg_table)
+
+
+@app.command("mitomaster-stats")
+def mitomaster_stats(
+    database: Annotated[
+        Path,
+        typer.Option("--database", "-d", help="Path to MitoMaster database"),
+    ] = Path.home() / ".haplogrep3" / "mitomaster.db",
+):
+    """Display MitoMaster database statistics.
+
+    Example:
+        haplogrep3 mitomaster-stats
+    """
+    if not database.exists():
+        console.print(f"[red]Error:[/red] Database not found: {database}")
+        console.print("Use 'haplogrep3 mitomaster-build' to create a database.")
+        raise typer.Exit(1)
+
+    from haplogrep3.mitomaster import MitoMasterDB
+
+    with MitoMasterDB(database) as db:
+        stats = db.get_stats()
+
+        console.print(f"[bold]MitoMaster Database Statistics[/bold]")
+        console.print(f"Database: {database}")
+        console.print()
+        console.print(f"Total genomes: {stats['genome_count']:,}")
+        console.print(f"Human genomes: {stats['human_genome_count']:,}")
+        console.print(f"Total variants: {stats['variant_count']:,}")
+        console.print(f"Unique variants: {stats['unique_variant_count']:,}")
+
+        if stats['top_haplogroups']:
+            console.print("\n[bold]Top Haplogroups:[/bold]")
+            table = Table()
+            table.add_column("Haplogroup", style="cyan")
+            table.add_column("Count", justify="right")
+
+            for hg in stats['top_haplogroups'][:15]:
+                table.add_row(hg['haplogroup'], str(hg['count']))
+
+            console.print(table)
+
+
 if __name__ == "__main__":
     app()
