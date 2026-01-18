@@ -1,40 +1,87 @@
-![GitHub release (latest by date)](https://img.shields.io/github/v/release/genepi/haplogrep3)
-[![DOI](https://zenodo.org/badge/564447801.svg)](https://zenodo.org/badge/latestdoi/564447801)
-[![Java CI with Maven](https://github.com/genepi/haplogrep3/actions/workflows/maven.yml/badge.svg)](https://github.com/genepi/haplogrep3/actions/workflows/maven.yml)
+# mtclassify
 
-# Haplogrep 3
+Python reimplementation of [Haplogrep3](https://github.com/genepi/haplogrep3) - a mtDNA haplogroup classification tool.
 
-Free mtDNA Haplogroup Classification Service
+## Installation
 
-## Web Service
+```bash
+# Using uv (recommended)
+uv sync
 
-We provide Haplogrep 3 as a [web-service](https://haplogrep.i-med.ac.at/haplogrep3) at the Medical University of Innsbruck. The service allows you upload the data to our service and run Haplogrep without any registration. Your input data is deleted right after classification. The results are available via a unique and shareable link for 7 days.
+# Or with pip
+pip install -e .
+```
 
-## Documentation
-The documentation can be found [here](https://haplogrep.readthedocs.io/).
+## Usage
 
-## Citation
-Schönherr S, Weissensteiner H, Kronenberg F, Forer L. Haplogrep 3 - an interactive haplogroup classification and analysis platform. Nucleic Acids Res. 2023. [https://doi.org/10.1093/nar/gkad284](https://doi.org/10.1093/nar/gkad284)
+### CLI
 
-## Standalone Version
+```bash
+# List available trees
+mtclassify trees
 
-### Requirements
+# Classify samples from VCF
+mtclassify run --input samples.vcf --tree phylotree-fu-rcrs@1.2 --output results.txt
 
-You will need the following things properly installed on your computer.
+# Classify with options
+mtclassify run \
+  --input samples.vcf \
+  --tree phylotree-fu-rcrs@1.2 \
+  --output results.txt \
+  --distance kulczynski \
+  --hits 10 \
+  --extend-report \
+  --write-fasta \
+  --write-qc
+```
 
-* Java 11 or higher
+### As a Library
 
-Haplogrep works on Linux, macOS and Windows.
+```python
+from pathlib import Path
+from mtclassify.io import VcfReader, load_phylotree
+from mtclassify.tasks import ClassificationTask
+from mtclassify.distance import Distance
 
-A step by step installation guide can be found [here](https://haplogrep.readthedocs.io/en/latest/installation/).
+# Load samples
+reader = VcfReader()
+samples = reader.read(Path("samples.vcf"))
 
+# Load phylotree
+phylotree = load_phylotree("phylotree-fu-rcrs@1.2")
 
-## Contact
+# Classify
+task = ClassificationTask(phylotree, Distance.KULCZYNSKI, hits=1)
+results = task.classify(samples)
 
-This software was developed at the [Institute of Genetic Epidemiology](https://genepi.i-med.ac.at/), [Medical University of Innsbruck](https://i-med.ac.at/)
+# Print results
+for sample in results:
+    if sample.classification:
+        print(f"{sample.id}: {sample.classification.haplogroup.name}")
+```
 
-![](https://avatars2.githubusercontent.com/u/210220?s=30) [Lukas Forer](mailto:lukas.forer@i-med.ac.at) ([@lukfor](https://twitter.com/lukfor))
+## Supported Input Formats
 
-![](https://avatars2.githubusercontent.com/u/1931865?s=30) [Hansi Weissensteiner](mailto:hansi.weissensteiner@i-med.ac.at) ([@whansi](https://twitter.com/whansi))
+- **VCF** (.vcf, .vcf.gz) - Variant Call Format
+- **FASTA** (.fasta, .fa, .fasta.gz, .fa.gz) - Sequence format
 
-![](https://avatars2.githubusercontent.com/u/1942824?s=30) [Sebastian Schoenherr](mailto:sebastian.schoenherr@i-med.ac.at) ([@seppinho](https://twitter.com/seppinho))
+## Distance Metrics
+
+- **Kulczynski** (default) - Best for haplogroup classification
+- **Hamming** - Simple position differences
+- **Jaccard** - Set similarity
+- **Kimura** - Transition/transversion weighted
+
+## Development
+
+```bash
+# Run tests
+uv run pytest tests/ -v
+
+# Run with coverage
+uv run pytest tests/ --cov=mtclassify
+```
+
+## License
+
+MIT License - see original [Haplogrep3](https://github.com/genepi/haplogrep3) for details.

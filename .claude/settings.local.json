@@ -13,7 +13,11 @@
       "Bash(find:*)",
       "Bash(javap:*)",
       "Bash(cat:*)",
-      "WebSearch"
+      "WebSearch",
+      "Bash(gh repo create:*)",
+      "Bash(git remote add:*)",
+      "Bash(git mv:*)",
+      "Bash(git rm:*)"
     ]
   }
 }

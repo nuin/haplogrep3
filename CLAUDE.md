@@ -4,76 +4,171 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-Haplogrep 3 is a free mtDNA haplogroup classification service. It can run as a web service or command-line tool, classifying mitochondrial DNA samples against phylogenetic trees (PhyloTree) to determine haplogroups.
+mtclassify is a Python mtDNA haplogroup classification tool. It classifies mitochondrial DNA samples against phylogenetic trees (PhyloTree) to determine haplogroups.
 
-## Build and Test Commands
+## Build and Development Commands
 
 ```bash
-# Build the project (creates haplogrep3.jar and platform-specific distributions)
-mvn package
+# Install dependencies
+uv sync
 
 # Run tests
-mvn test
+uv run pytest tests/ -v
 
-# Run a single test class
-mvn test -Dtest=ClassifyCommandTest
+# Run a single test file
+uv run pytest tests/test_polymorphism.py -v
 
-# Run a single test method
-mvn test -Dtest=ClassifyCommandTest#testWithHsd
+# Run with coverage
+uv run pytest tests/ --cov=mtclassify
+
+# Run the CLI
+uv run mtclassify --help
+uv run mtclassify run --help
+uv run mtclassify trees
 ```
 
-## Running Haplogrep
+## Project Structure
 
-```bash
-# Start local web server (default port 7000)
-java -jar target/haplogrep3.jar server
-
-# Classify samples via CLI
-java -jar target/haplogrep3.jar classify --tree <tree-id> --in <input-file> --out <output-file>
-
-# List available phylogenetic trees
-java -jar target/haplogrep3.jar trees
+```
+src/mtclassify/
+├── __init__.py
+├── cli.py              # Typer CLI entry point
+├── models/             # Pydantic data models
+│   ├── polymorphism.py # Polymorphism (mtDNA variant)
+│   ├── haplogroup.py   # Haplogroup class
+│   ├── sample.py       # Sample, RankedResult, ClassificationResult
+│   └── phylotree.py    # PhyloTreeNode, Phylotree
+├── distance/           # Distance metrics
+│   ├── base.py         # DistanceMetric ABC
+│   ├── kulczynski.py   # Default metric
+│   ├── hamming.py
+│   ├── jaccard.py
+│   └── kimura.py
+├── io/                 # Input/Output
+│   ├── tree_loader.py  # Phylotree YAML loader
+│   ├── vcf_reader.py   # VCF parser (cyvcf2)
+│   └── fasta_reader.py # FASTA parser (biopython)
+├── mitomaster/         # MitoMaster variant database
+│   ├── database.py     # DuckDB database
+│   ├── downloader.py   # NCBI downloader
+│   ├── processor.py    # GenBank processor
+│   └── frequency.py    # Frequency calculator
+└── tasks/              # Classification pipeline
+    ├── classify.py     # ClassificationTask
+    └── export.py       # CSV/FASTA export
 ```
 
 ## Architecture
 
-### Entry Point and CLI
-- `App.java` - Main entry point using picocli for CLI parsing
-- `commands/` - CLI subcommands (classify, server, align, build-tree, install-tree, etc.)
+### Classification Pipeline
+1. **Input** → VcfReader or FastaReader parses input file to Sample objects
+2. **Tree Loading** → PhylotreeLoader loads phylogenetic tree from YAML
+3. **Classification** → ClassificationTask scores all haplogroups using distance metric
+4. **Export** → Results written to CSV, optionally FASTA/QC reports
 
-### Core Classification Pipeline
-1. **Input Readers** (`haplogrep/io/readers/`) - Parse VCF, FASTA, or HSD (text-based) input formats
-2. **ClassificationTask** (`tasks/ClassificationTask.java`) - Orchestrates classification using phylotree and distance metrics
-3. **Phylotree** (`model/Phylotree.java`) - Loads tree definitions from YAML, manages haplogroup lookups and classification via `haplogrep-core` library
-4. **AnnotationTask** (`tasks/AnnotationTask.java`) - Enriches samples with annotation data from configured sources
-5. **Export Tasks** (`tasks/Export*.java`) - Generate output in various formats (CSV, FASTA, QC reports, HTML)
-
-### Web Application
-- `web/WebApp.java` - Javalin-based web server with route definitions
-- `web/handlers/` - Request handlers for jobs, phylogenies, mutations, clades
-- Uses BasisTemplate for HTML rendering
-
-### Key Model Classes
-- `Phylotree` - Tree configuration and classification logic
-- `PhylotreeRepository` - Manages installed phylogenetic trees
-- `AnnotatedSample` - Sample with classification results and annotations
-- `Distance` - Enum for distance metrics (Kulczynski, Hamming, Jaccard, Kimura)
-
-### Configuration
-- `haplogrep3.yaml` - Main configuration (port, examples, tree repositories, enabled phylotrees)
-- Tree definitions loaded from remote repositories or local YAML files
+### Key Classes
+- `Polymorphism`: mtDNA variant (position + mutation)
+- `Sample`: Sample with polymorphisms and classification results
+- `Phylotree`: Tree structure with PhyloTreeNodes
+- `ClassificationTask`: Orchestrates classification using distance metrics
+- `DistanceMetric`: ABC for Kulczynski, Hamming, Jaccard, Kimura
 
 ### Dependencies
-- `haplogrep-core` (genepi) - Core classification algorithms and phylotree parsing
-- `genepi-annotate` - Annotation framework
-- Javalin - Web framework
-- picocli - CLI framework
-- YamlBeans - YAML parsing
+- `typer`: CLI framework
+- `pydantic`: Data validation
+- `cyvcf2`: VCF parsing
+- `biopython`: FASTA parsing
+- `rich`: CLI output formatting
+- `fastapi`: Web API framework
+- `uvicorn`: ASGI server
+- `duckdb`: MitoMaster database
 
-## Test Data
+## Web Interface
 
-Test files in `test-data/` organized by format:
-- `hsd/` - HSD format samples
-- `fasta/` - FASTA format samples
-- `vcf/` - VCF format samples
-- `expected/` - Expected output files for test validation
+### Running the Server
+
+```bash
+# Start the FastAPI server
+uv run mtclassify server
+
+# With custom host/port
+uv run mtclassify server --host 0.0.0.0 --port 8000
+
+# Development mode with auto-reload
+uv run mtclassify server --reload
+```
+
+### API Endpoints
+- `GET /api/health` - Health check
+- `GET /api/trees` - List available phylogenetic trees
+- `GET /api/distances` - List distance metrics
+- `POST /api/classify` - Classify samples from uploaded file
+
+### MitoMaster Endpoints
+- `GET /api/mitomaster/status` - Database status
+- `GET /api/mitomaster/stats` - Database statistics
+- `GET /api/mitomaster/variant/{position}` - Get variant at position
+- `GET /api/mitomaster/search` - Search variants
+
+### Frontend Development
+
+```bash
+cd frontend
+
+# Install dependencies
+npm install
+
+# Run development server (connects to backend at localhost:7001)
+npm run dev
+
+# Type check
+npm run check
+
+# Build for production
+npm run build
+```
+
+### Project Structure (Web)
+```
+src/mtclassify/api/
+├── __init__.py
+├── app.py              # FastAPI application
+└── mitomaster_routes.py # MitoMaster API routes
+
+frontend/               # Svelte 5 + SvelteKit
+├── src/
+│   ├── lib/
+│   │   └── api.ts      # API client
+│   └── routes/
+│       ├── +page.svelte      # Main classification UI
+│       └── mitomaster/       # MitoMaster UI
+│           └── +page.svelte
+├── svelte.config.js
+└── vite.config.ts      # Includes proxy to backend
+```
+
+## CLI Commands
+
+### Classification
+```bash
+# Classify mtDNA samples
+mtclassify run -i samples.vcf -o results.csv
+
+# With options
+mtclassify run -i samples.fasta -o results.csv -t phylotree-rcrs@17.2 -d kulczynski --hits 3
+```
+
+### MitoMaster Database
+```bash
+# Build database from NCBI
+mtclassify mitomaster-build -e your@email.com
+
+# Import local GenBank files
+mtclassify mitomaster-import /path/to/genomes/ -o mitomaster.db
+
+# Query a position
+mtclassify mitomaster-query 3243
+
+# Show database stats
+mtclassify mitomaster-stats
+```
